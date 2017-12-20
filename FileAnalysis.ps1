@@ -54,13 +54,13 @@ Function Get-FileAnalysis () {
     -CSVfile requires a properly formatted CSV file or files
 
     To create a CSV file on a remote system, use Get-Childitem. The file must at least contain the following properties:
-        -Extension 
-        -Length 
+        -Extension
+        -Length
         -LastWriteTime
 
     For Example: 
-    PS C:\>Get-Childitem -Path D:\ -Recurse -File | 
-        Select-Object FullName,Extension,Length,LastWriteTime | 
+    PS C:\>Get-Childitem -Path D:\ -Recurse -File |
+        Select-Object FullName,Extension,Length,LastWriteTime |
         Export-Csv Server1-DriveD.csv -NoTypeInformation
 
     .OUTPUTS
@@ -71,7 +71,7 @@ Function Get-FileAnalysis () {
     This function requires Excel to be locally installed. Tested with Excel 2013.
     #>
 
-    [CmdletBinding()]    
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true,
                    Position=0,
@@ -131,17 +131,17 @@ Function Get-FileAnalysis () {
         }
         ElseIf ($CSVFile) {
             $Command = "Import-Csv -Path $CSVFile"
-            $OutFile = "$(([io.fileinfo]$CSVFile).BaseName)-$DateStamp"  # Using the basename of the input file(s). 
+            $OutFile = "$(([io.fileinfo]$CSVFile).BaseName)-$DateStamp"  # Using the basename of the input file(s).
             $TitlePrefix = $OutFile # We assume some kind of descriptive filename, like "Server1 - Cdrive"
         }
 
         # Specify the current users' home folder for the output file(s).
         $OutFile = "$Home\Documents\$OutFile.xlsx"
 
-        # Delete the output file if one already exists. Nasty things happen to the file otherwise. 
+        # Delete the output file if one already exists. Nasty things happen to the file otherwise.
         # This will be unlikely now that a datestamp is added to the filename
         Try {
-            $ErrorActionPreference = "Stop"  #Make all errors terminating 
+            $ErrorActionPreference = "Stop"  #Make all errors terminating
             If (Test-Path $OutFile) {
                 Remove-Item $OutFile -Force
                 Write-Output "`n$OutFile exists, deleted it"
@@ -150,7 +150,7 @@ Function Get-FileAnalysis () {
         Catch {
             Write-Output "`nFound an existing output file $OutFile but can't delete it. Close the file and rename it if you want to keep it."
             #Move onto the next input file if there is one
-            Return 
+            Return
         }
         Finally {
             #Allow non-terminating errors again, this is necessary because get-childitem may throw some permissions errors
@@ -158,7 +158,7 @@ Function Get-FileAnalysis () {
         }
 
         # Loop through file names and get their extension and age. Add these values to the appropriate array element
-        Write-Output "`nProcessing '$Command'..." 
+        Write-Output "`nProcessing '$Command'..."
         Invoke-Expression $Command | Foreach-object {
             # Make sure Length Property is an integer - when piping get-childitem the object is file system object an everything works
             # However, when piping from a Csv the object is a custom object and length property is a string. This causes unexpected results in FileSize function 
@@ -169,7 +169,7 @@ Function Get-FileAnalysis () {
             $FileType = Get-FileType(($_.Extension).ToLower())
             $FileAge = Get-FileAge($_.LastWriteTime)
             $FileSize = Get-FileSize($Length)
-    
+
             # Update the input arrays
             $SizebyDateArr[$FileAge,$FileType] += ($Length)   # Add file to size by date array
             $NumberbyDateArr[$FileAge,$FileType] += 1         # Increment files by date array
@@ -177,7 +177,7 @@ Function Get-FileAnalysis () {
             $NumberBySizeArr[$FileSize,$FileType] += 1        # Increment files by size array
         }
 
-        # Now convert the arrays to Powershell Custom Objects mostly for formatting purposes 
+        # Now convert the arrays to Powershell Custom Objects mostly for formatting purposes
         $ObjSizebyDate = ConvertTo-PSObject -Header $AgeHeader -DataArray $SizebyDateArr -Format "0.00" -Divider 1mb
         $ObjNumberbyDate = ConvertTo-PSObject -Header $AgeHeader -DataArray $NumberbyDateArr -Format "0"
         $ObjSizebySize = ConvertTo-PSObject -Header $SizeHeader -DataArray $SizebySizeArr -Format "0.00" -Divider 1mb
@@ -201,7 +201,6 @@ Function Get-FileAnalysis () {
         Invoke-Item $OutFile  #Show the last spreadsheet created. If -Path is used, there will only be one.
     }
 }
-
 Function Get-FileType ($ext) {
     # Helper Function for Get-FileAnalysis - returns an integer based on the type of file (acts as index for the input arrays)
     # Uses variables from parent scope, but we don't change any of them, so its OK that they are local and not global (no copy-on-write)
@@ -261,7 +260,7 @@ Function Get-FileSize ($FileSize) {
 }
 Function ConvertTo-PSObject() {
     # Helper Function for Get-FileAnalysis - converts an array into a custom PowerShell Object. Expects 4 arguments, a header array with
-    # 16 elements, which becomes the first row of the object, a two dimensional array 16 X 12 in size containing the data, the format 
+    # 16 elements, which becomes the first row of the object, a two dimensional array 16 X 12 in size containing the data, the format
     # of the output string, and an optional denominator to obtain the correct size formatting.
     Param (
         [String[]]$Header,      # 1 dimensional array
@@ -287,15 +286,15 @@ Function ConvertTo-PSObject() {
             'Temp' = ($DataArray[$i,8] / $Divider).ToString($Format)
             'Email' = ($DataArray[$i,9] / $Divider).ToString($Format)
             'Others' = ($DataArray[$i,11] / $Divider).ToString($Format)
-            'PST' = ($DataArray[$i,10] / $Divider).ToString($Format)  
+            'PST' = ($DataArray[$i,10] / $Divider).ToString($Format)
         }
     }
 }
 Function New-ExcelWithChart () {
-    # This function opens a new or existing spreadsheet and adds a new worksheet to it. 
+    # This function opens a new or existing spreadsheet and adds a new worksheet to it.
     # It would be more efficient to keep the Excel session open and keep appending until
     # done, but I wanted to make this funtion self contained for other uses.
-    # 
+    #
     # I looked at Import-Excel module, but found it limiting with charts. https://github.com/dfinke/ImportExcel
     Param
     ( 
@@ -344,7 +343,7 @@ Function New-ExcelWithChart () {
     # Some preliminary settings, name the worksheet, hide Excel.
     $xl.Visible = $False
     $xl.DisplayAlerts = $False  # You need this, otherwise you are prompted to overwrite. Save() method is better than SaveAs() (no prompt), but need SaveAs() for a new file
-    $ws.Name = $WorksheetName   
+    $ws.Name = $WorksheetName
 
     #Populate the data onto worksheet, This method rocks because the range is already selected for the chart later
     $Data | ConvertTo-CSV -NoTypeInformation -Delimiter "`t" | c:\windows\system32\clip.exe
@@ -356,11 +355,11 @@ Function New-ExcelWithChart () {
     #$chart.Name = "Chart-$WorksheetName"     # If creating a chart in a new worksheet, name the worksheet
     $chart=$ws.Shapes.AddChart().Chart        # or, embed a chart into the current worksheet
     
-    #Format the Chart 
+    #Format the Chart
     $chart.ChartType = 55  #$xlChart::xl3DColumnStacked doesn't work. If you pipe this to | Select -ExpandProperty value__ you get 55, but this doesn't work either.
     $chart.ChartStyle = 34 #Favourite colours, background etc.
     $chart.ChartColor = 2
-    $chart.Perspective = 20 
+    $chart.Perspective = 20
     $chart.Rotation = 30
     $chart.HeightPercent = 100
 
