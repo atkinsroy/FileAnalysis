@@ -1,5 +1,4 @@
-﻿# Need a function to create a CSV if using the -CSVFile option in Get-FileAnalysis
-Function Get-FileList {
+﻿Function Get-FileListing {
     <#
     .SYNOPSIS
     This function captures the output of Get-ChildItem in a format that can be used for later file analysis
@@ -10,13 +9,13 @@ Function Get-FileList {
     path. This is then written to a CSV and stored in the users default documents folder. 
     
     .EXAMPLE
-    Get-FileList -Path C:
+    Get-FileListing -Path C:
 
     .EXAMPLE
-    Get-FileList -Path D
+    Get-FileListing -Path D
 
     .EXAMPLE
-    Get-FileList -Path E:\data
+    Get-FileListing -Path E:\data
     #>
 
     [CmdletBinding()]
@@ -51,11 +50,10 @@ Function Get-FileList {
     }
 
     $FileName = ("$Home\Documents\$env:COMPUTERNAME-$VolumeLabel.csv").ToLower()
-    Write-Output "Path = $Path"
-    Write-Output "DriveLetter = $Driveletter"
-    Write-Output "Filename = $FileName" 
+    Write-Output "Creating file $FileName..." 
     Get-ChildItem -Path $Path -Recurse -File | Select-Object FullName,Extension,LastWriteTime,Length | 
             Export-Csv $FileName -NoTypeInformation
+    Write-Output "Done"
 }
 
 Function Get-FileAnalysis () {
@@ -143,7 +141,7 @@ Function Get-FileAnalysis () {
 
     Begin {
         # Begin block runs once only
-        # File type variables - used in the Get-FileType function - Yes, these are used - they're in a function called Get-FileType
+        # File type variables - used in the Get-FileType function - Yes, these are used - they're used in helper functions
         $MediaFiles = ".aif .asf .au .avi .p33 .m3u .mid .idi .miv .mov .mp2 .mp3 .mp4 .mpe .peg .mpg .mpeg .qt .rmi .snd .wav .wm .wma .wmv .p3a .p3b"
         $GraphicsFiles = ".3d2 .dmf .3ds .ai .art .bdf .bez .bmf .bmp .byu .cag .cam cdf .cdm .cpt .dcs .dem .dib .dkb .dlg .dwg .dxb .dxf .nff .eps .fac .fbm .fpx .fxd .eom .gif .gry .ham .hrf .iff .ges .img .imj .nst .iv .jas .big .jfi .fif .jpc .peg .jpg .jpeg .lbm .wob .mac .esh .mgf .mic .mng .mod .mrb .sdl .msp .nff .rbs .obj .oct .off .ogl .pbm .pcd .pct .pcx .pgm .pic .ict .ply .pnt .pol .pov .ppm .rop .psd .pub .uad .rad .ras .raw .ray .rgb .rib .rif .rwx .ene .scn .scr .sdl .dml .sgi .sgo .ade .shg .swf .iff .ddd .tga .tif .iff .oly .oly .rif .ect .vid .iff .wrl .x3d .xbm .odl .ydl .met .dc .pnf .jp2 .dgn .dxf .png"
         $BackupFiles = ".arc .arj .bac .bak .bck .bar .bkf .cab .cpt .dms .gl .gz .zip .ha .hpk .hqx .hyp .ish .lha .lzh .lzx .pak .pit .rar .saf .sea .har .shk .sit .sqz .tar .taz .tgz .uc2 .y .z .zip .zoo .old"
