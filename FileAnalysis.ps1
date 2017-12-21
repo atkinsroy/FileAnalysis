@@ -1,9 +1,62 @@
 ﻿# Need a function to create a CSV if using the -CSVFile option in Get-FileAnalysis
-Function Get-Files {
-    #here's an example for now...
-    Get-ChildItem -Path C:\ -Recurse -File | Select-Object FullName,Extension,LastWriteTime,Length | Export-Csv test.csv
-}
+Function Get-FileList {
+    <#
+    .SYNOPSIS
+    This function captures the output of Get-ChildItem in a format that can be used for later file analysis
+    using Get-FileAnalysis.
+    
+    .DESCRIPTION
+    This function captures full (recursive) file listing with the name, extension, modified date and file size of each file in the specified
+    path. This is then written to a CSV and stored in the users default documents folder. 
+    
+    .EXAMPLE
+    Get-FileList -Path C:
 
+    .EXAMPLE
+    Get-FileList -Path D
+
+    .EXAMPLE
+    Get-FileList -Path E:\data
+    #>
+
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$False,
+                   Position=0,
+                   ValueFromPipeline=$true)]
+        [String]$Path = "C:\"
+    )
+
+    # Ensure we have a valid Path name
+    if ($Path.Length -lt 2) {
+        $Path = $Path + ":\"
+    }
+    ElseIf ($Path.Length -lt 3) {
+        $Path = $Path + "\"
+    }
+
+    #Confirm that the specified volume exists and grab the volume label while we're at it
+    $DriveLetter = ($Path).Substring(0,1)
+    Try {
+        $ErrorActionPreference = "Stop"
+        $VolumeLabel = (Get-Volume -DriveLetter $DriveLetter -ErrorAction Stop).FileSystemLabel -replace ' ', ''
+    }
+    Catch {
+        Write-Output "Specified Drive $DriveLetter not found, please enter full path"
+        Return
+    }
+    Finally {
+       #Allow non-terminating errors again, this is necessary because get-childitem may throw some permissions errors
+       $ErrorActionPreference = "Continue" 
+    }
+
+    $FileName = ("$Home\Documents\$env:COMPUTERNAME-$VolumeLabel.csv").ToLower()
+    Write-Output "Path = $Path"
+    Write-Output "DriveLetter = $Driveletter"
+    Write-Output "Filename = $FileName" 
+    Get-ChildItem -Path $Path -Recurse -File | Select-Object FullName,Extension,LastWriteTime,Length | 
+            Export-Csv $FileName -NoTypeInformation
+}
 
 Function Get-FileAnalysis () {
     <#
