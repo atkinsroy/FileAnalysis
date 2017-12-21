@@ -1,6 +1,8 @@
-# FileAnalysis
+ # FileAnalysis
 
-This PowerShell module runs on Windows systems and can be used to produce nice reports in Excel. The module contains two exported functions, as follows:
+This PowerShell module runs on Windows systems and can be used to produce nice reports in Excel showing the file usage on one or more disks. The original intent was to understand file types, their size and relative age so that third party file archiving rules could be sensibly established before turning on the archiving software.
+
+The module contains two exported functions, as follows:
 
 1. **Get-FileListing** - Generates a file listing of a target path and creates a CSV file with the required output attributes for the Get-FileAnalysis function. The function uses Get-ChildItem and captures the file name, size, extension and modified date of each file in the specfied path. The idea is to use this function on your servers either locally or via a remote session. Once you have a bunch of CSV files, you can pipe them to the Get-FileAnalysis function on your local machine. 
 
