@@ -15,4 +15,4 @@ The module contains two exported functions, as follows:
 
 These 4 reports are created in a single Excel Spreadsheet; one spreadsheet per specified path.
 
-![Number of Files by Size](https://github.com/atkinsroy/FileAnalysis/blob/master/Media/NumberFilesBySize.PNG)
+![Number of Files by Size] (/Media/NumberFilesBySize.PNG)
