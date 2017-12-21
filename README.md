@@ -1,4 +1,4 @@
- # FileAnalysis
+# FileAnalysis
 
 This PowerShell module runs on Windows systems and can be used to produce nice reports in Excel showing the file usage on one or more disks. The original intent was to understand file types, their size and relative age so that third party file archiving rules could be sensibly established before turning on the archiving software.
 
@@ -14,3 +14,5 @@ The module contains two exported functions, as follows:
 
 These 4 reports are created in a single Excel Spreadsheet; one spreadsheet per specified path.
 
+Here is an example report:
+![Number of Files by Size](/Media/NumberFilesBySize.PNG)
