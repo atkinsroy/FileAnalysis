@@ -21,9 +21,9 @@ Here is an example report:
 
 ```powershell
 1. One time setup
-    * Download the repository
-    * Unblock the files
-    * Extract the files to a module path (e.g. $env:USERPROFILE\Documents\WindowsPowerShell\Modules\FileAnalysis)
+  * Download the repository
+  * Unblock the files
+  * Extract the files to a module path (e.g. $env:USERPROFILE\Documents\WindowsPowerShell\Modules\FileAnalysis)
 
 2. Import the module.
     Import-Module FileAnalysis
