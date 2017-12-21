@@ -16,3 +16,21 @@ These 4 reports are created in a single Excel Spreadsheet; one spreadsheet per s
 
 Here is an example report:
 ![Number of Files by Size](/Media/NumberFilesBySize.PNG)
+
+# Instructions
+
+```powershell
+1. One time setup
+    # Download the repository
+    # Unblock the files
+    # Extract the files to a module path (e.g. $env:USERPROFILE\Documents\WindowsPowerShell\Modules\FileAnalysis)
+
+2. Import the module.
+    Import-Module FileAnalysis
+
+3. Get commands in the module
+    Get-Command -Module FileAnalysis
+
+4. Get help for a command
+    Get-Help Get-FileAnalysis
+```
