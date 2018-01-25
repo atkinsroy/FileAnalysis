@@ -19,8 +19,7 @@
     #>
 
     [CmdletBinding()]
-    Param
-    (
+    Param (
         [Parameter(Mandatory=$False,
                    Position=0,
                    ValueFromPipeline=$true)]
@@ -28,29 +27,34 @@
     )
 
     # Ensure we have a valid Path name
-    if ($Path.Length -lt 2)
-    {
+    if ($Path.Length -lt 2) {
         $Path = $Path + ":\"
     }
-    ElseIf ($Path.Length -lt 3)
-    {
+    ElseIf ($Path.Length -lt 3) {
         $Path = $Path + "\"
     }
+    If (Test-Path -Path $Path) {
+        Write-Output "Drive $DriveLetter not found, please enter correct full path"
+        Return
+    }
+
 
     #Confirm that the specified volume exists and grab the volume label while we're at it
     $DriveLetter = ($Path).Substring(0,1)
-    Try
-    {
+    Try {
         $ErrorActionPreference = "Stop"
-        $VolumeLabel = (Get-Volume -DriveLetter $DriveLetter -ErrorAction Stop).FileSystemLabel -replace ' ', ''
+        # Get-Volume is not currently implemented in PowerShell Core (V6.0.0)
+        # $VolumeLabel = (Get-Volume -DriveLetter $DriveLetter -ErrorAction Stop).FileSystemLabel -replace '\s', ''
+        $VolumeLabel = Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction Stop | 
+                Where-Object {$_.DeviceID -match $DriveLetter} | 
+                Select-Object -ExpandProperty VolumeName
+        $VolumeLabel = $VolumeLabel -replace '\s', ''
     }
-    Catch
-    {
-        Write-Output "Specified Drive $DriveLetter not found, please enter full path"
+    Catch {
+        Write-Output "Drive $DriveLetter not found, please enter correct full path"
         Return
     }
-    Finally
-    {
+    Finally {
        #Allow non-terminating errors again, this is necessary because get-childitem may throw some permissions errors
        $ErrorActionPreference = "Continue" 
     }
@@ -62,8 +66,7 @@
     Write-Output "Done"
 }
 
-Function Get-FileAnalysis ()
-{
+Function Get-FileAnalysis {
     <#
     .SYNOPSIS
     This Function analyses file system information and reports on storage usage
@@ -130,8 +133,7 @@ Function Get-FileAnalysis ()
     #>
 
     [CmdletBinding()]
-    Param
-    (
+    Param (
         [Parameter(Mandatory=$true,
                    Position=0,
                    ValueFromPipeline=$true,
@@ -147,8 +149,7 @@ Function Get-FileAnalysis ()
         $Path
     )
 
-    Begin
-    {
+    Begin {
         # Begin block runs once only
         # File type variables - used in the Get-FileType function - Yes, these are used - they're used in helper functions
         $MediaFiles = ".aif .asf .au .avi .p33 .m3u .mid .idi .miv .mov .mp2 .mp3 .mp4 .mpe .peg .mpg .mpeg .qt .rmi .snd .wav .wm .wma .wmv .p3a .p3b"
@@ -169,8 +170,7 @@ Function Get-FileAnalysis ()
         $SizeHeader = @('<1K','1K-8K','8K-16K','16K-32K','32K-64K','64K-128K','128K-256K','256K-512K','512K-1M','1M-2M','2M-4M','4M-8M','8M-16M','16M-32M','32M-50M','>50M')
     }
 
-    Process
-    {
+    Process {
         # Process block runs once per object on the pipeline (i.e. if multiple CSV's are piped to this function)
 
         # Create four 2 dimensional arrays to hold the output. Specifying long integer to avoid overrun.
@@ -181,19 +181,23 @@ Function Get-FileAnalysis ()
         $NumberBySizeArr = New-Object 'long[,]' 16,12
 
         # Determine whether a path was specified or a CSV file, generate the command to use later
-        if($Path)
-        {
-            $Path = $Path.ToUpper()
-            if($Path.EndsWith(":"))
-            {
+        if($Path) {
+            # Ensure we have a valid Path name
+            if ($Path.Length -lt 2) {
+                $Path = $Path + ":\"
+            }
+            ElseIf ($Path.Length -lt 3) {
                 $Path = $Path + "\"
+            }
+            If (Test-Path -Path $Path) {
+                Write-Output "Path $Path not found, please enter correct full path"
+                Return
             }
             $Command = "Get-Childitem -Path $Path -File -Recurse"
             $OutFile = "FileAnalysis-$DateStamp"
             $TitlePrefix = "Computer $env:COMPUTERNAME - $Path"
         }
-        ElseIf ($CSVFile)
-        {
+        ElseIf ($CSVFile) {
             $Command = "Import-Csv -Path $CSVFile"
             $OutFile = "$(([io.fileinfo]$CSVFile).BaseName)-$DateStamp"  # Using the basename of the input file(s).
             $TitlePrefix = $OutFile # We assume some kind of descriptive filename, like "Server1 - Cdrive"
@@ -204,31 +208,26 @@ Function Get-FileAnalysis ()
 
         # Delete the output file if one already exists. Nasty things happen to the file otherwise.
         # This will be unlikely now that a datestamp is added to the filename
-        Try
-        {
+        Try {
             $ErrorActionPreference = "Stop"  #Make all errors terminating
-            If (Test-Path $OutFile)
-            {
+            If (Test-Path $OutFile) {
                 Remove-Item $OutFile -Force
                 Write-Output "`n$OutFile exists, deleted it"
             }
         }
-        Catch
-        {
+        Catch {
             Write-Output "`nFound an existing output file $OutFile but can't delete it. Close the file and rename it if you want to keep it."
             #Move onto the next input file if there is one
             Return
         }
-        Finally
-        {
+        Finally {
             #Allow non-terminating errors again, this is necessary because get-childitem may throw some permissions errors
             $ErrorActionPreference = "Continue"
         }
 
         # Loop through file names and get their extension and age. Add these values to the appropriate array element
         Write-Output "`nProcessing '$Command'..."
-        Invoke-Expression $Command | Foreach-object
-        {
+        Invoke-Expression $Command | Foreach-Object {
             # Make sure Length Property is an integer - when piping get-childitem the object is file system object an everything works
             # However, when piping from a Csv the object is a custom object and length property is a string. This causes unexpected results in FileSize function 
             # (i.e. string comparison rather than number)
@@ -265,14 +264,13 @@ Function Get-FileAnalysis ()
         New-ExcelWithChart -Data $ObjNumberbySize -XLabel "Number of Files" -YLabel "File Size" -ChartTitle "$TitlePrefix : Number of Files By Size" -WorksheetName "Number of files (by size)" -ExcelFileName $OutFile 
     }
 
-    End
-    {
+    End {
         Write-Output "Done"
         Invoke-Item $OutFile  #Show the last spreadsheet created. If -Path is used, there will only be one.
     }
 }
-Function Get-FileType ($ext)
-{
+
+Function Get-FileType ($ext) {
     # Helper Function for Get-FileAnalysis - returns an integer based on the type of file (acts as index for the input arrays)
     # Uses variables from parent scope, but we don't change any of them, so its OK that they are local and not global (no copy-on-write)
     # (However, PSScriptAnalyzer marks them as not used because they are never referenced in the parent function)
@@ -289,8 +287,8 @@ Function Get-FileType ($ext)
     elseif ($PST.Contains($ext)) {10}
     else {11}
 }
-Function Get-FileAge ($FileAge)
-{
+
+Function Get-FileAge ($FileAge) {
     # Helper Function for Get-FileAnalysis - returns an integer based on age of file (acts as index for input arrays)
     $DaysOld = New-TimeSpan -start $FileAge -End $CollectionDate | Select-Object -ExpandProperty Days
     If ($DaysOld -lt 7) {0}
@@ -310,8 +308,8 @@ Function Get-FileAge ($FileAge)
     Elseif ($DaysOld -lt 2555) {14}
     Else {15}
 }
-Function Get-FileSize ($FileSize)
-{
+
+Function Get-FileSize ($FileSize) {
     # Helper Function for Get-FileAnalysis - returns an integer based on size of file (acts as index for input arrays)
     # Note - the filesize parameter (in kilobytes) needs to be a number, not a string. Convert to long before calling.
     If ($FileSize -lt 1024) {0}
@@ -331,8 +329,8 @@ Function Get-FileSize ($FileSize)
     ElseIf ($FileSize -lt 57108864) {14}
     Else {15}
 }
-Function ConvertTo-PSObject()
-{
+
+Function ConvertTo-PSObject() {
     # Helper Function for Get-FileAnalysis - converts an array into a custom PowerShell Object. Expects 4 arguments, a header array with
     # 16 elements, which becomes the first row of the object, a two dimensional array 16 X 12 in size containing the data, the format
     # of the output string, and an optional denominator to obtain the correct size formatting.
@@ -343,12 +341,10 @@ Function ConvertTo-PSObject()
         [Int]$Divider           # Optional denominator value to produce desired size conversation - e.g. 1mb
     )
 
-    If(-not($Divider))
-    {
+    If(-not($Divider)) {
         $Divider = 1
     }
-    For ($i = 0; $i -le 15; $i++)
-    {
+    For ($i = 0; $i -le 15; $i++) {
         [pscustomobject]@{
             'Size (MB)' = $Header[$i]
             'Media Files' = ($DataArray[$i,0] / $Divider).ToString($Format)
@@ -366,15 +362,14 @@ Function ConvertTo-PSObject()
         }
     }
 }
-Function New-ExcelWithChart ()
-{
+
+Function New-ExcelWithChart () {
     # This function opens a new or existing spreadsheet and adds a new worksheet to it.
     # It would be more efficient to keep the Excel session open and keep appending until
     # done, but I wanted to make this funtion self contained for other uses.
     #
     # I looked at Import-Excel module, but found it limiting with charts. https://github.com/dfinke/ImportExcel
-    Param
-    ( 
+    Param ( 
         [Parameter(Mandatory=$true,Position=0)]
         $Data,
 
@@ -404,15 +399,14 @@ Function New-ExcelWithChart ()
     # $xlIconSet=[Microsoft.Office.Interop.Excel.XLIconSet]
     # $xlDirection=[Microsoft.Office.Interop.Excel.XLDirection]
 
-    If(Test-Path -Path $ExcelFileName)
-    {
+    If(Test-Path -Path $ExcelFileName) {
         #Excel file exists, so open it. Assumes its an Excel file (No error checking)
         Write-Output "$ExcelFileName already exists, appending report '$ChartTitle'"
         $wb = $xl.Workbooks.Open($ExcelFileName)
         $ws = $xl.Worksheets.add()
     }
-    Else
-    {
+
+    Else {
         #Excel file does not exist, so open a new one
         Write-Output "$ExcelFileName does not exist, creating report '$ChartTitle'"
         $wb = $xl.workbooks.add()
