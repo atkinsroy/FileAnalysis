@@ -20,9 +20,9 @@
 
     [CmdletBinding()]
     Param (
-        [Parameter(Mandatory=$False,
-                   Position=0,
-                   ValueFromPipeline=$true)]
+        [Parameter(Mandatory = $False,
+            Position = 0,
+            ValueFromPipeline = $true)]
         [String]$Path = "C:\"
     )
 
@@ -33,21 +33,21 @@
     ElseIf ($Path.Length -lt 3) {
         $Path = $Path + "\"
     }
-    If (Test-Path -Path $Path) {
-        Write-Output "Drive $DriveLetter not found, please enter correct full path"
+    If (-not $(Test-Path -Path $Path)) {
+        Write-Output "Drive $Path not found, please enter correct full path"
         Return
     }
 
 
     #Confirm that the specified volume exists and grab the volume label while we're at it
-    $DriveLetter = ($Path).Substring(0,1)
+    $DriveLetter = ($Path).Substring(0, 1)
     Try {
         $ErrorActionPreference = "Stop"
         # Get-Volume is not currently implemented in PowerShell Core (V6.0.0)
         # $VolumeLabel = (Get-Volume -DriveLetter $DriveLetter -ErrorAction Stop).FileSystemLabel -replace '\s', ''
         $VolumeLabel = Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction Stop | 
-                Where-Object {$_.DeviceID -match $DriveLetter} | 
-                Select-Object -ExpandProperty VolumeName
+            Where-Object {$_.DeviceID -match $DriveLetter} | 
+            Select-Object -ExpandProperty VolumeName
         $VolumeLabel = $VolumeLabel -replace '\s', ''
     }
     Catch {
@@ -55,14 +55,14 @@
         Return
     }
     Finally {
-       #Allow non-terminating errors again, this is necessary because get-childitem may throw some permissions errors
-       $ErrorActionPreference = "Continue" 
+        #Allow non-terminating errors again, this is necessary because get-childitem may throw some permissions errors
+        $ErrorActionPreference = "Continue" 
     }
 
     $FileName = ("$Home\Documents\$env:COMPUTERNAME-$VolumeLabel.csv").ToLower()
     Write-Output "Creating file $FileName..." 
-    Get-ChildItem -Path $Path -Recurse -File | Select-Object FullName,Extension,LastWriteTime,Length | 
-            Export-Csv $FileName -NoTypeInformation
+    Get-ChildItem -Path $Path -Recurse -File | Select-Object FullName, Extension, LastWriteTime, Length | 
+        Export-Csv $FileName -NoTypeInformation
     Write-Output "Done"
 }
 
@@ -134,17 +134,22 @@ Function Get-FileAnalysis {
 
     [CmdletBinding()]
     Param (
-        [Parameter(Mandatory=$true,
-                   Position=0,
-                   ValueFromPipeline=$true,
-                   ParameterSetName='FileSpecified')]   # Either -CSVfile of -Path can be specified, but not both
+        [Parameter(Mandatory = $true,
+            Position = 0,
+            ValueFromPipeline = $true,
+            ParameterSetName = 'FileSpecified')]   # Either -CSVfile of -Path can be specified, but not both
         [String]
         $CSVFile,
 
-        [Parameter(Mandatory=$true,
-                   Position=0,
-                   ValueFromPipeline=$false,
-                   ParameterSetName='PathSpecified')]
+        [Parameter(Position = 1,
+            ParameterSetName = 'FileSpecified')]
+        [Datetime]
+        $CollectionDate,
+
+        [Parameter(Mandatory = $true,
+            Position = 0,
+            ValueFromPipeline = $false,
+            ParameterSetName = 'PathSpecified')]
         [String]
         $Path
     )
@@ -164,10 +169,13 @@ Function Get-FileAnalysis {
         $Email = ".mbx .nsf .ns3 .ost .cca .pab .msg .trn .nk2"
         $PST = ".pst"
 
-        $CollectionDate = Get-Date  # Used in Get-FileAge function
+        if ($CollectionDate -eq $null) {
+            "Using todays date as collection date"
+            $CollectionDate = Get-Date  # Used in Get-FileAge function
+        }
         $DateStamp = Get-Date -Format "yyMMddhhmm" 
-        $AgeHeader = @('<7 days','7-14 days','14-21 days','21-28 days','28-60 days','60-90 days','90-120 days','120-180 days','180-365 days','1-2 years','2-3 years','3-4 years','4-5 years','5-6 years','6-7 years','>7 years')
-        $SizeHeader = @('<1K','1K-8K','8K-16K','16K-32K','32K-64K','64K-128K','128K-256K','256K-512K','512K-1M','1M-2M','2M-4M','4M-8M','8M-16M','16M-32M','32M-50M','>50M')
+        $AgeHeader = @('<7 days', '7-14 days', '14-21 days', '21-28 days', '28-60 days', '60-90 days', '90-120 days', '120-180 days', '180-365 days', '1-2 years', '2-3 years', '3-4 years', '4-5 years', '5-6 years', '6-7 years', '>7 years')
+        $SizeHeader = @('<1K', '1K-8K', '8K-16K', '16K-32K', '32K-64K', '64K-128K', '128K-256K', '256K-512K', '512K-1M', '1M-2M', '2M-4M', '4M-8M', '8M-16M', '16M-32M', '32M-50M', '>50M')
     }
 
     Process {
@@ -175,13 +183,13 @@ Function Get-FileAnalysis {
 
         # Create four 2 dimensional arrays to hold the output. Specifying long integer to avoid overrun.
         # Arrays must be the same dimensions so we can use the same function to convert the arrays to custom objects (ConvertTo-PSObject) 
-        $SizebyDateArr = New-Object 'long[,]' 16,12
-        $NumberbyDateArr = New-Object 'long[,]' 16,12
-        $SizeBySizeArr = New-Object 'long[,]' 16,12
-        $NumberBySizeArr = New-Object 'long[,]' 16,12
+        $SizebyDateArr = New-Object 'long[,]' 16, 12
+        $NumberbyDateArr = New-Object 'long[,]' 16, 12
+        $SizeBySizeArr = New-Object 'long[,]' 16, 12
+        $NumberBySizeArr = New-Object 'long[,]' 16, 12
 
         # Determine whether a path was specified or a CSV file, generate the command to use later
-        if($Path) {
+        if ($Path) {
             # Ensure we have a valid Path name
             if ($Path.Length -lt 2) {
                 $Path = $Path + ":\"
@@ -189,7 +197,7 @@ Function Get-FileAnalysis {
             ElseIf ($Path.Length -lt 3) {
                 $Path = $Path + "\"
             }
-            If (Test-Path -Path $Path) {
+            If (-Not (Test-Path -Path $Path)) {
                 Write-Output "Path $Path not found, please enter correct full path"
                 Return
             }
@@ -239,10 +247,10 @@ Function Get-FileAnalysis {
             $FileSize = Get-FileSize($Length)
 
             # Update the input arrays
-            $SizebyDateArr[$FileAge,$FileType] += ($Length)   # Add file to size by date array
-            $NumberbyDateArr[$FileAge,$FileType] += 1         # Increment files by date array
-            $SizeBySizeArr[$FileSize,$FileType] += ($Length)  # Add file to size by size array
-            $NumberBySizeArr[$FileSize,$FileType] += 1        # Increment files by size array
+            $SizebyDateArr[$FileAge, $FileType] += ($Length)   # Add file to size by date array
+            $NumberbyDateArr[$FileAge, $FileType] += 1         # Increment files by date array
+            $SizeBySizeArr[$FileSize, $FileType] += ($Length)  # Add file to size by size array
+            $NumberBySizeArr[$FileSize, $FileType] += 1        # Increment files by size array
         }
 
         # Now convert the arrays to Powershell Custom Objects mostly for formatting purposes
@@ -335,30 +343,30 @@ Function ConvertTo-PSObject() {
     # 16 elements, which becomes the first row of the object, a two dimensional array 16 X 12 in size containing the data, the format
     # of the output string, and an optional denominator to obtain the correct size formatting.
     Param (
-        [String[]]$Header,      # 1 dimensional array
-        [Long[,]]$DataArray,    # 2 dimensional array with long datatype
-        [String]$Format,        # ToString format e.g. "0" and "0.00"
+        [String[]]$Header, # 1 dimensional array
+        [Long[, ]]$DataArray, # 2 dimensional array with long datatype
+        [String]$Format, # ToString format e.g. "0" and "0.00"
         [Int]$Divider           # Optional denominator value to produce desired size conversation - e.g. 1mb
     )
 
-    If(-not($Divider)) {
+    If (-not($Divider)) {
         $Divider = 1
     }
     For ($i = 0; $i -le 15; $i++) {
         [pscustomobject]@{
-            'Size (MB)' = $Header[$i]
-            'Media Files' = ($DataArray[$i,0] / $Divider).ToString($Format)
-            'Graphics Files' = ($DataArray[$i,1] / $Divider).ToString($Format)
-            'Backup Files' = ($DataArray[$i,2] / $Divider).ToString($Format)
-            'Documents' = ($DataArray[$i,3] / $Divider).ToString($Format)
-            'WebFiles' = ($DataArray[$i,4] / $Divider).ToString($Format)
-            'Databases' = ($DataArray[$i,5] / $Divider).ToString($Format)
-            'BlockFiles' = ($DataArray[$i,6] / $Divider).ToString($Format)
-            'Programs' = ($DataArray[$i,7] / $Divider).ToString($Format)
-            'Temp' = ($DataArray[$i,8] / $Divider).ToString($Format)
-            'Email' = ($DataArray[$i,9] / $Divider).ToString($Format)
-            'Others' = ($DataArray[$i,11] / $Divider).ToString($Format)
-            'PST' = ($DataArray[$i,10] / $Divider).ToString($Format)
+            'Size (MB)'      = $Header[$i]
+            'Media Files'    = ($DataArray[$i, 0] / $Divider).ToString($Format)
+            'Graphics Files' = ($DataArray[$i, 1] / $Divider).ToString($Format)
+            'Backup Files'   = ($DataArray[$i, 2] / $Divider).ToString($Format)
+            'Documents'      = ($DataArray[$i, 3] / $Divider).ToString($Format)
+            'WebFiles'       = ($DataArray[$i, 4] / $Divider).ToString($Format)
+            'Databases'      = ($DataArray[$i, 5] / $Divider).ToString($Format)
+            'BlockFiles'     = ($DataArray[$i, 6] / $Divider).ToString($Format)
+            'Programs'       = ($DataArray[$i, 7] / $Divider).ToString($Format)
+            'Temp'           = ($DataArray[$i, 8] / $Divider).ToString($Format)
+            'Email'          = ($DataArray[$i, 9] / $Divider).ToString($Format)
+            'Others'         = ($DataArray[$i, 11] / $Divider).ToString($Format)
+            'PST'            = ($DataArray[$i, 10] / $Divider).ToString($Format)
         }
     }
 }
@@ -370,22 +378,22 @@ Function New-ExcelWithChart () {
     #
     # I looked at Import-Excel module, but found it limiting with charts. https://github.com/dfinke/ImportExcel
     Param ( 
-        [Parameter(Mandatory=$true,Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         $Data,
 
-        [Parameter(Mandatory=$true,Position=1)]
+        [Parameter(Mandatory = $true, Position = 1)]
         [String]$XLabel,
 
-        [Parameter(Mandatory=$true,Position=2)]
+        [Parameter(Mandatory = $true, Position = 2)]
         [String]$YLabel,
 
-        [Parameter(Mandatory=$true,Position=3)]
+        [Parameter(Mandatory = $true, Position = 3)]
         [String]$ChartTitle,
 
-        [Parameter(Mandatory=$true,Position=4)]
+        [Parameter(Mandatory = $true, Position = 4)]
         [String]$WorksheetName,
 
-        [Parameter(Mandatory=$true,Position=5)]
+        [Parameter(Mandatory = $true, Position = 5)]
         $ExcelFileName
     )
     
@@ -399,7 +407,7 @@ Function New-ExcelWithChart () {
     # $xlIconSet=[Microsoft.Office.Interop.Excel.XLIconSet]
     # $xlDirection=[Microsoft.Office.Interop.Excel.XLDirection]
 
-    If(Test-Path -Path $ExcelFileName) {
+    If (Test-Path -Path $ExcelFileName) {
         #Excel file exists, so open it. Assumes its an Excel file (No error checking)
         Write-Output "$ExcelFileName already exists, appending report '$ChartTitle'"
         $wb = $xl.Workbooks.Open($ExcelFileName)
@@ -426,7 +434,7 @@ Function New-ExcelWithChart () {
     #Create Chart 
     #$chart=$xl.Charts.Add()                  # Create a chart in a new worksheet
     #$chart.Name = "Chart-$WorksheetName"     # If creating a chart in a new worksheet, name the worksheet
-    $chart=$ws.Shapes.AddChart().Chart        # or, embed a chart into the current worksheet
+    $chart = $ws.Shapes.AddChart().Chart        # or, embed a chart into the current worksheet
     
     #Format the Chart
     $chart.ChartType = 55  #$xlChart::xl3DColumnStacked doesn't work. If you pipe this to | Select -ExpandProperty value__ you get 55, but this doesn't work either.
